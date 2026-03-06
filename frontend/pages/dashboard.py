@@ -17,7 +17,24 @@ headers = {"Authorization": f"Bearer {st.session_state['token']}"}
 
 st.title("📊 Dashboard Financeiro")
 
-# Buscar dados
+# Info do upload atual
+try:
+    response_uploads = requests.get(
+        f"{API_BASE_URL}/upload/list/faturamento",
+        headers=headers,
+        timeout=10
+    )
+    
+    if response_uploads.status_code == 200:
+        uploads = response_uploads.json()
+        if uploads:
+            latest = uploads[0]
+            upload_date = latest.get('uploaded_at', '')[:10] if latest.get('uploaded_at') else 'N/A'
+            st.caption(f"📅 Último upload: {upload_date} | 📄 Arquivo: {latest.get('filename', 'N/A')}")
+except:
+    pass
+
+# Buscar dados do dashboard
 try:
     response = requests.get(f"{API_BASE_URL}/dashboard/", headers=headers, timeout=20)
 
@@ -37,7 +54,9 @@ except Exception as e:
     st.write(e)
     st.stop()
 
-# 🔥 NOVO: Cards de Resumo Financeiro
+# 🔥 A partir daqui, data já está definido
+
+# Resumo Financeiro
 st.subheader("💰 Resumo Financeiro")
 
 summary = data.get("summary", {})
@@ -77,7 +96,7 @@ st.write(f"📊 Transações: **{data.get('transactions', 0):,}**")
 
 st.divider()
 
-# 🔥 NOVO: Gráfico de Créditos vs Débitos Mensal
+# Gráfico de Créditos vs Débitos Mensal
 monthly = data.get("monthly", [])
 if monthly:
     st.subheader("📈 Evolução Mensal: Créditos vs Débitos")

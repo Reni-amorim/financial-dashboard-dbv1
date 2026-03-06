@@ -23,9 +23,15 @@ MONEY_COLS = [
 ]
 
 
-def _latest_parquet_for_user(user_id: int) -> str | None:
-    """Retorna o arquivo Parquet mais recente do usuário"""
-    pattern = os.path.join("data", "processed", str(user_id), "*.parquet")
+def _latest_parquet_for_user(user_id: int, upload_type: str = "faturamento") -> str | None:
+    """
+    Retorna o arquivo Parquet mais recente do usuário por tipo
+    
+    Args:
+        user_id: ID do usuário
+        upload_type: Tipo de upload ("faturamento" ou "anuncios")
+    """
+    pattern = os.path.join("data", upload_type, str(user_id), "*.parquet")
     files = glob(pattern)
     if not files:
         return None
@@ -34,23 +40,15 @@ def _latest_parquet_for_user(user_id: int) -> str | None:
 
 
 @router.get("/")
-@router.get("/")
 def get_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Retorna dados do dashboard para o usuário autenticado
-    
-    Returns:
-        - username: nome do usuário
-        - transactions: número de transações
-        - totals: totais por coluna monetária
-        - summary: resumo de créditos/débitos/líquido
-        - monthly: dados agrupados por mês
-        - source_file: nome do arquivo processado
+    Retorna dados do dashboard de faturamento
     """
-    parquet_path = _latest_parquet_for_user(current_user.id)
+    # Especifica que quer dados de faturamento
+    parquet_path = _latest_parquet_for_user(current_user.id, upload_type="faturamento")
 
     if not parquet_path:
         return {
@@ -64,7 +62,7 @@ def get_dashboard(
             },
             "monthly": [],
             "source_file": None,
-            "message": "Faça um upload de uma planilha para obter o relatório",
+            "message": "Faça um upload de uma planilha de faturamento para obter o relatório",
         }
 
     # Lê Parquet (valores já vêm como float)
@@ -85,7 +83,7 @@ def get_dashboard(
         totals[col] = total
         print(f"💰 {col}: R$ {total:,.2f}")
 
-    # 🔥 NOVO: Calcula resumo financeiro
+    # Calcula resumo financeiro
     creditos_cols = [
         "Receita por produtos (BRL)",
         "Receita por acréscimo no preço (pago pelo comprador)",
@@ -125,7 +123,7 @@ def get_dashboard(
             for col in present_cols:
                 record[col] = float(row[col])
             
-            # 🔥 NOVO: Adiciona créditos/débitos mensais
+            # Adiciona créditos/débitos mensais
             mes_creditos = sum(row[col] for col in creditos_cols if col in row)
             mes_debitos = sum(abs(row[col]) for col in debitos_cols if col in row)
             
@@ -143,7 +141,7 @@ def get_dashboard(
         "username": current_user.username,
         "transactions": int(len(df)),
         "totals": totals,
-        "summary": summary,  # 🔥 NOVO
+        "summary": summary,
         "monthly": monthly,
         "source_file": os.path.basename(parquet_path),
-    }
+    }   

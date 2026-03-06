@@ -244,7 +244,7 @@ def process_xlsx_to_parquet(xlsx_path: str, user_id: int) -> dict:
 
     # Salva Parquet
     upload_id = str(uuid.uuid4())
-    out_dir = os.path.join("data", "processed", str(user_id))
+    out_dir = os.path.join("data", "faturamento", str(user_id))
     os.makedirs(out_dir, exist_ok=True)
 
     out_path = os.path.join(out_dir, f"{upload_id}.parquet")
