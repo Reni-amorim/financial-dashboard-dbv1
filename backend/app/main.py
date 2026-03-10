@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.init_db import init_database
-from app.api import upload, dashboard, auth
+from app.api import upload, dashboard, auth, dashboard_anuncios
 
 # Configuração de logging
 logging.basicConfig(
@@ -53,6 +53,7 @@ async def shutdown_event():
 app.include_router(auth.router)
 app.include_router(upload.router)
 app.include_router(dashboard.router)
+app.include_router(dashboard_anuncios.router)
 
 
 @app.get("/")
