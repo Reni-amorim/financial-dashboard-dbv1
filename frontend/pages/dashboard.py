@@ -24,14 +24,13 @@ try:
         headers=headers,
         timeout=10
     )
-    
     if response_uploads.status_code == 200:
         uploads = response_uploads.json()
         if uploads:
             latest = uploads[0]
             upload_date = latest.get('uploaded_at', '')[:10] if latest.get('uploaded_at') else 'N/A'
             st.caption(f"📅 Último upload: {upload_date} | 📄 Arquivo: {latest.get('filename', 'N/A')}")
-except:
+except Exception:
     pass
 
 # Buscar dados do dashboard
@@ -53,8 +52,6 @@ except Exception as e:
     st.error("Erro ao conectar no backend")
     st.write(e)
     st.stop()
-
-# 🔥 A partir daqui, data já está definido
 
 # Resumo Financeiro
 st.subheader("💰 Resumo Financeiro")
@@ -90,7 +87,6 @@ with col3:
 
 st.divider()
 
-# Info do arquivo
 st.caption(f"📁 Fonte: {data.get('source_file', '-')}")
 st.write(f"📊 Transações: **{data.get('transactions', 0):,}**")
 
@@ -100,25 +96,25 @@ st.divider()
 monthly = data.get("monthly", [])
 if monthly:
     st.subheader("📈 Evolução Mensal: Créditos vs Débitos")
-    
+
     dfm = pd.DataFrame(monthly).sort_values("ano_mes")
-    
+
     fig = go.Figure()
-    
+
     fig.add_trace(go.Bar(
         x=dfm["ano_mes"],
         y=dfm["creditos"],
         name="Créditos",
         marker_color="#2ecc71"
     ))
-    
+
     fig.add_trace(go.Bar(
         x=dfm["ano_mes"],
         y=dfm["debitos"],
         name="Débitos",
         marker_color="#e74c3c"
     ))
-    
+
     fig.add_trace(go.Scatter(
         x=dfm["ano_mes"],
         y=dfm["liquido"],
@@ -127,7 +123,7 @@ if monthly:
         marker=dict(size=10, color="#3498db"),
         line=dict(width=3, color="#3498db")
     ))
-    
+
     fig.update_layout(
         barmode="group",
         xaxis_title="Mês",
@@ -135,23 +131,22 @@ if monthly:
         hovermode="x unified",
         height=500
     )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
+
+    st.plotly_chart(fig, width="stretch")
+
     st.divider()
-    
+
     # Tabela detalhada
     st.subheader("📋 Detalhamento Mensal")
-    
-    # Formata valores
+
     dfm_display = dfm.copy()
     for col in ["creditos", "debitos", "liquido"]:
         if col in dfm_display.columns:
             dfm_display[col] = dfm_display[col].apply(
                 lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             )
-    
-    st.dataframe(dfm_display, use_container_width=True, hide_index=True)
+
+    st.dataframe(dfm_display, width="stretch", hide_index=True)
 
 else:
     st.info("Sem dados mensais disponíveis.")

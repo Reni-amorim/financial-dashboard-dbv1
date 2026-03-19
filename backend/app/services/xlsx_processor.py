@@ -17,6 +17,30 @@ MONEY_COLS = [
 ]
 
 
+_MESES_PT = {
+    "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
+    "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
+    "setembro": "09", "outubro": "10", "novembro": "11", "dezembro": "12",
+}
+
+def _parse_data_pt(val) -> "pd.Timestamp":
+    """Converte 'DD de mês de YYYY HH:MM hs.' para Timestamp."""
+    if pd.isna(val) or not isinstance(val, str):
+        return pd.NaT
+    v = val.strip().lower().replace(" hs.", "").replace("hs.", "").strip()
+    for mes_nome, mes_num in _MESES_PT.items():
+        if mes_nome in v:
+            v = v.replace(f" de {mes_nome} de ", f"/{mes_num}/")
+            v = v.replace(f" de {mes_nome} ",    f"/{mes_num}/")
+            break
+    for fmt in ["%d/%m/%Y %H:%M", "%d/%m/%Y"]:
+        try:
+            return pd.to_datetime(v, format=fmt)
+        except Exception:
+            pass
+    return pd.NaT
+
+
 def _dedupe_columns(cols: list[str]) -> list[str]:
     """Remove colunas duplicadas adicionando sufixo"""
     seen = {}
@@ -157,11 +181,52 @@ def process_xlsx_to_parquet(xlsx_path: str, user_id: int) -> dict:
     print(f"📊 Total de linhas: {len(df)}")
 
     # Processa datas
+    # "Data da venda" pode vir vazia no ML (pedidos em andamento)
+    # Fallback: usa "Mês de faturamento das suas tarifas" que sempre tem valor
     if "Data da venda" in df.columns:
-        df["Data da venda"] = pd.to_datetime(
-            df["Data da venda"], errors="coerce", dayfirst=True
-        )
+        df["Data da venda"] = df["Data da venda"].apply(_parse_data_pt)
+
+    # ano_mes: tenta Data da venda primeiro, fallback para Mês de faturamento
+    MES_FAT_COL = "Mês de faturamento das suas tarifas"
+    if "Data da venda" in df.columns and df["Data da venda"].notna().any():
         df["ano_mes"] = df["Data da venda"].dt.to_period("M").astype(str)
+        # Preenche NaT com Mês de faturamento quando disponível
+        if MES_FAT_COL in df.columns:
+            mask_nat = df["Data da venda"].isna()
+            if mask_nat.any():
+                def _parse_mes_fat(val):
+                    """Converte 'fevereiro 2026' -> '2026-02'"""
+                    _MESES = {
+                        "janeiro":"01","fevereiro":"02","março":"03","abril":"04",
+                        "maio":"05","junho":"06","julho":"07","agosto":"08",
+                        "setembro":"09","outubro":"10","novembro":"11","dezembro":"12",
+                    }
+                    if not val or str(val).strip() in ("", "nan", "None"):
+                        return "desconhecido"
+                    v = str(val).strip().lower()
+                    for mes, num in _MESES.items():
+                        if mes in v:
+                            ano = "".join(c for c in v if c.isdigit())[-4:]
+                            return f"{ano}-{num}"
+                    return "desconhecido"
+                df.loc[mask_nat, "ano_mes"] = df.loc[mask_nat, MES_FAT_COL].apply(_parse_mes_fat)
+    elif MES_FAT_COL in df.columns:
+        def _parse_mes_fat(val):
+            _MESES = {
+                "janeiro":"01","fevereiro":"02","março":"03","abril":"04",
+                "maio":"05","junho":"06","julho":"07","agosto":"08",
+                "setembro":"09","outubro":"10","novembro":"11","dezembro":"12",
+            }
+            if not val or str(val).strip() in ("", "nan", "None"):
+                return "desconhecido"
+            v = str(val).strip().lower()
+            for mes, num in _MESES.items():
+                if mes in v:
+                    ano = "".join(c for c in v if c.isdigit())[-4:]
+                    return f"{ano}-{num}"
+            return "desconhecido"
+        df["ano_mes"] = df[MES_FAT_COL].apply(_parse_mes_fat)
+        print(f"   ℹ️  ano_mes extraído de '{MES_FAT_COL}'")
     else:
         df["ano_mes"] = "desconhecido"
 
