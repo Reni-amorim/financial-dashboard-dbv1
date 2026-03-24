@@ -34,12 +34,19 @@ st.markdown("""
 st.title("🔬 Dashboard Analítico — Faturamento × Anúncios")
 
 # ── Busca dados ───────────────────────────────────────────
+# ── Paginação ─────────────────────────────────────────────
+if "pagina_vendas" not in st.session_state:
+    st.session_state["pagina_vendas"] = 1
+
+PAGE_SIZE = 100
+
 with st.spinner("Cruzando faturamento com anúncios..."):
     try:
         response = requests.get(
             f"{API_BASE_URL}/dashboard/analitico",
             headers=headers,
-            timeout=30,
+            timeout=60,
+            params={"page": st.session_state["pagina_vendas"], "page_size": PAGE_SIZE},
         )
         if response.status_code != 200:
             st.error(f"Erro {response.status_code}")
@@ -194,11 +201,16 @@ if acumulado:
 # 3. TABELA DE VENDAS DETALHADA
 # ════════════════════════════════════════════════════════════
 if vendas:
-    st.subheader("🧾 Vendas Detalhadas com Custo de Anúncio Rateado")
+    pagination = data.get("paginacao", data.get("pagination", {}))
+    total       = pagination.get("total", len(vendas))
+    total_pages = pagination.get("total_pages", 1)
+    page_atual  = pagination.get("page", 1)
+
+    st.subheader(f"🧾 Vendas Detalhadas com Custo de Anúncio Rateado  ({total:,} vendas)")
     st.caption(
         "💡 **Líquido ML (sem anúncios)** = valor líquido calculado pelo Mercado Livre após taxas de venda, "
         "frete e impostos — mas **não desconta** o custo de anúncios patrocinados. "
-        "O **Líquido Real** = Receita Produto − Custo Anúncio Rateado."
+        "O **Líquido Real** = Líquido ML − Custo Anúncio Rateado."
     )
 
     df_v = pd.DataFrame(vendas)
@@ -229,6 +241,22 @@ if vendas:
     df_v_display = df_v_display[cols_show].rename(columns=rename)
 
     st.dataframe(df_v_display, width="stretch", hide_index=True)
+
+    # ── Navegação de páginas ──────────────────────────────
+    st.divider()
+    col_p1, col_p2, col_p3 = st.columns([1, 3, 1])
+    with col_p1:
+        if page_atual > 1:
+            if st.button("◀ Anterior"):
+                st.session_state["pagina_vendas"] -= 1
+                st.rerun()
+    with col_p2:
+        st.caption(f"Página {page_atual} de {total_pages} — exibindo {len(vendas)} de {total:,} vendas")
+    with col_p3:
+        if page_atual < total_pages:
+            if st.button("Próxima ▶"):
+                st.session_state["pagina_vendas"] += 1
+                st.rerun()
 
 st.divider()
 

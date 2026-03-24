@@ -61,7 +61,7 @@ DEBITOS_COLS = [
 # Lógica de cruzamento
 # ─────────────────────────────────────────────
 
-def _build_analitico(df_fat: pd.DataFrame, df_anun: pd.DataFrame) -> dict:
+def _build_analitico(df_fat: pd.DataFrame, df_anun: pd.DataFrame, page: int = 1, page_size: int = 100, filtro_mlb: str = "") -> dict:
     """
     Cruza faturamento com anúncios patrocinados pelo Código MLB.
 
@@ -172,7 +172,9 @@ def _build_analitico(df_fat: pd.DataFrame, df_anun: pd.DataFrame) -> dict:
         # Total (BRL) = resultado líquido calculado pelo próprio ML após todas as
         # taxas deles — NÃO inclui custo de anúncios patrocinados
         total_ml     = float(row.get("Total (BRL)", 0) or 0)
-        liquido_real = receita_produto - custo_venda
+        # Líquido Real = Líquido ML − Custo Anúncio
+        # (Total BRL já descontou taxas ML, só falta descontar o anúncio)
+        liquido_real = total_ml - custo_venda
 
         custo_total_rateado += custo_venda
 
@@ -228,10 +230,25 @@ def _build_analitico(df_fat: pd.DataFrame, df_anun: pd.DataFrame) -> dict:
         if info["investimento"] > 0
     ]
 
+    # Paginação + filtro opcional por MLB
+    if filtro_mlb:
+        vendas_rows = [v for v in vendas_rows if filtro_mlb.upper() in v["mlb"].upper()]
+
+    total_vendas_filtradas = len(vendas_rows)
+    inicio = (page - 1) * page_size
+    fim    = inicio + page_size
+    vendas_paginadas = vendas_rows[inicio:fim]
+
     return {
-        "summary":   summary,
-        "acumulado": acumulado_list,
-        "vendas":    vendas_rows[:500],  # limita para não explodir o JSON
+        "summary":    summary,
+        "acumulado":  acumulado_list,
+        "vendas":     vendas_paginadas,
+        "paginacao": {
+            "page":        page,
+            "page_size":   page_size,
+            "total":       total_vendas_filtradas,
+            "total_pages": -(-total_vendas_filtradas // page_size),  # ceil
+        },
     }
 
 
@@ -241,6 +258,9 @@ def _build_analitico(df_fat: pd.DataFrame, df_anun: pd.DataFrame) -> dict:
 
 @router.get("/")
 def get_dashboard_analitico(
+    page: int = 1,
+    page_size: int = 100,
+    mlb: str = "",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -276,7 +296,7 @@ def get_dashboard_analitico(
     print(f"   Anúncios:    {len(df_anun)} linhas")
     print(f"{'='*60}")
 
-    result = _build_analitico(df_fat, df_anun)
+    result = _build_analitico(df_fat, df_anun, page=page, page_size=page_size, filtro_mlb=mlb)
 
     print(f"   Créditos:      R$ {result['summary']['total_creditos']:,.2f}")
     print(f"   Débitos:       R$ {result['summary']['total_debitos']:,.2f}")
