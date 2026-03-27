@@ -1,0 +1,65 @@
+# ─── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# ─── Environment & Secrets ────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Data & Storage ───────────────────────────────────────────
+data/raw/
+data/faturamento/
+data/anuncios/
+data/processed/
+*.parquet
+*.xlsx
+!data/exemplo_financeiro.xlsx
+
+# ─── Docker ───────────────────────────────────────────────────
+postgres_data/
+
+# ─── Node / Frontend (React migration) ────────────────────────
+node_modules/
+dist/
+.next/
+.nuxt/
+.output/
+.cache/
+*.local
+
+# ─── IDEs ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Misc ─────────────────────────────────────────────────────
+*.bak
+*.tmp
+.hypothesis/
