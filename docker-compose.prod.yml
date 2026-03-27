@@ -10,6 +10,11 @@ services:
       POSTGRES_DB: financial_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - financial_network
     # Não expõe porta 5432 para fora!
