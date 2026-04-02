@@ -48,7 +48,7 @@ def login(username, password):
         token = response.json()["access_token"]
         st.session_state["token"] = token
         st.success("Login realizado com sucesso!")
-        st.switch_page("pages/dashboard.py")
+        st.switch_page("pages/dashboard_faturamento.py")
     else:
         st.error("Usuário ou senha inválidos")
 

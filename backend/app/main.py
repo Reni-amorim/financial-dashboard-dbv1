@@ -6,9 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from app.init_db import init_database
-from app.api import upload, dashboard, auth
-from app.api import dashboard_anuncios   # 🔥 NOVO
-from app.api import dashboard_analitico  # 🔥 NOVO
+from app.api import upload, auth
+from app.api import dashboard_faturamento
+from app.api import dashboard_anuncios
+from app.api import dashboard_analitico
+from app.api import empresa
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,10 +47,10 @@ async def shutdown_event():
 
 app.include_router(auth.router)
 app.include_router(upload.router)
-app.include_router(dashboard.router)
+app.include_router(dashboard_faturamento.router)
 app.include_router(dashboard_anuncios.router)   # 🔥 NOVO
 app.include_router(dashboard_analitico.router)  # 🔥 NOVO
-
+app.include_router(empresa.router)
 
 @app.get("/")
 def root():

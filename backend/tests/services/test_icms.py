@@ -8,7 +8,7 @@ Quando a função calcular_icms() for implementada, importe-a aqui.
 
 # ============================================================
 # Quando implementar, descomente a linha abaixo:
-# from app.services.icms_calculator import calcular_icms
+from app.services.icms_calculator import calcular_icms
 # ============================================================
 
 

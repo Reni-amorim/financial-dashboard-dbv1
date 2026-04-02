@@ -12,6 +12,7 @@ import json
 from app.db.database import get_db
 from app.models.user import User
 from app.models.upload import Upload
+from app.models.empresa import Empresa                          # ← NOVO
 from app.core.deps import get_current_user
 from app.services.xlsx_processor import process_xlsx_to_parquet
 from app.services.anuncios_processor import process_anuncios_to_parquet
@@ -26,14 +27,31 @@ async def upload_faturamento(
     db: Session = Depends(get_db)
 ):
     """Upload de planilha de faturamento"""
-    
+
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Apenas arquivos XLSX são permitidos"
         )
-    
-    # 🔥 NOVO: Deleta uploads anteriores de faturamento deste usuário
+
+    # ── Busca empresa do usuário para obter estado de origem ──
+    empresa = (
+        db.query(Empresa)
+        .filter(Empresa.user_id == current_user.id)
+        .first()
+    )
+
+    if not empresa:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cadastre uma empresa antes de fazer o upload. "
+                   "O estado da empresa é necessário para o cálculo de ICMS."
+        )
+
+    estado_origem = empresa.estado
+    logger.info(f"🏢 Empresa: {empresa.nome} | Estado origem: {estado_origem}")
+
+    # ── Deleta uploads anteriores de faturamento deste usuário ─
     previous_uploads = (
         db.query(Upload)
         .filter(
@@ -42,35 +60,31 @@ async def upload_faturamento(
         )
         .all()
     )
-    
+
     for old_upload in previous_uploads:
-        # Deleta arquivos físicos
         try:
             if old_upload.file_path and Path(old_upload.file_path).exists():
                 Path(old_upload.file_path).unlink()
                 logger.info(f"🗑️ Arquivo deletado: {old_upload.file_path}")
-            
+
             if old_upload.parquet_path and Path(old_upload.parquet_path).exists():
                 Path(old_upload.parquet_path).unlink()
                 logger.info(f"🗑️ Parquet deletado: {old_upload.parquet_path}")
         except Exception as e:
             logger.warning(f"⚠️ Erro ao deletar arquivos: {e}")
-        
-        # Deleta registro do banco
+
         db.delete(old_upload)
-    
+
     db.commit()
     logger.info(f"✅ {len(previous_uploads)} upload(s) anterior(es) removido(s)")
-    
-    # Gera nome único
-    file_id = str(uuid.uuid4())
-    filename = f"{file_id}_{file.filename}"
+
+    # ── Gera nome único e salva arquivo ───────────────────────
+    file_id   = str(uuid.uuid4())
+    filename  = f"{file_id}_{file.filename}"
     file_path = Path("data/raw/faturamento") / filename
-    
-    # Cria diretório
+
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Salva arquivo
+
     try:
         with open(file_path, "wb") as f:
             f.write(await file.read())
@@ -79,8 +93,8 @@ async def upload_faturamento(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao salvar: {str(e)}"
         )
-    
-    # Cria registro
+
+    # ── Cria registro no banco ────────────────────────────────
     new_upload = Upload(
         user_id=current_user.id,
         upload_type="faturamento",
@@ -89,42 +103,47 @@ async def upload_faturamento(
         file_path=str(file_path),
         processing_status="pending"
     )
-    
+
     db.add(new_upload)
     db.commit()
     db.refresh(new_upload)
-    
-    # Processa
+
+    # ── Processa XLSX com cálculo de ICMS ─────────────────────
     try:
-        result = process_xlsx_to_parquet(str(file_path), current_user.id)
-        
+        result = process_xlsx_to_parquet(
+            str(file_path),
+            current_user.id,
+            estado_origem=estado_origem,        # ← NOVO
+        )
+
         new_upload.processing_status = "completed"
-        new_upload.rows_processed = result["rows"]
-        new_upload.parquet_path = result["parquet_path"]
-        new_upload.metrics_json = json.dumps(result.get("summary", {}))
-        new_upload.processed_at = datetime.utcnow()
-        
+        new_upload.rows_processed    = result["rows"]
+        new_upload.parquet_path      = result["parquet_path"]
+        new_upload.metrics_json      = json.dumps(result.get("summary", {}))
+        new_upload.processed_at      = datetime.utcnow()
+
         db.commit()
         db.refresh(new_upload)
-        
+
     except Exception as e:
         logger.error(f"Erro: {e}")
         new_upload.processing_status = "failed"
-        new_upload.error_message = str(e)
+        new_upload.error_message     = str(e)
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao processar: {str(e)}"
         )
-    
+
     return {
-        "id": new_upload.id,
+        "id":          new_upload.id,
         "upload_type": "faturamento",
-        "status": new_upload.processing_status,
-        "rows": new_upload.rows_processed,
-        "message": "✅ Planilha de faturamento processada com sucesso!",
-        "info": f"Upload anterior substituído. Mostrando novos dados."
+        "status":      new_upload.processing_status,
+        "rows":        new_upload.rows_processed,
+        "message":     "✅ Planilha de faturamento processada com sucesso!",
+        "info":        f"Upload anterior substituído. Mostrando novos dados.",
     }
+
 
 @router.post("/anuncios")
 async def upload_anuncios(
@@ -133,22 +152,20 @@ async def upload_anuncios(
     db: Session = Depends(get_db)
 ):
     """Upload de planilha de anúncios"""
-    
+
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Apenas arquivos XLSX são permitidos"
         )
-    
+
     # Gera nome único
-    file_id = str(uuid.uuid4())
-    filename = f"{file_id}_{file.filename}"
+    file_id   = str(uuid.uuid4())
+    filename  = f"{file_id}_{file.filename}"
     file_path = Path("data/raw/anuncios") / filename
-    
-    # Cria diretório
+
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Salva arquivo
+
     try:
         with open(file_path, "wb") as f:
             f.write(await file.read())
@@ -157,8 +174,7 @@ async def upload_anuncios(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao salvar: {str(e)}"
         )
-    
-    # Cria registro
+
     new_upload = Upload(
         user_id=current_user.id,
         upload_type="anuncios",
@@ -167,41 +183,40 @@ async def upload_anuncios(
         file_path=str(file_path),
         processing_status="pending"
     )
-    
+
     db.add(new_upload)
     db.commit()
     db.refresh(new_upload)
-    
-    # Processa
+
     try:
         result = process_anuncios_to_parquet(str(file_path), current_user.id)
-        
+
         new_upload.processing_status = "completed"
-        new_upload.rows_processed = result["rows"]
-        new_upload.parquet_path = result["parquet_path"]
-        new_upload.metrics_json = json.dumps(result.get("metrics", {}))
-        new_upload.processed_at = datetime.utcnow()
-        
+        new_upload.rows_processed    = result["rows"]
+        new_upload.parquet_path      = result["parquet_path"]
+        new_upload.metrics_json      = json.dumps(result.get("metrics", {}))
+        new_upload.processed_at      = datetime.utcnow()
+
         db.commit()
         db.refresh(new_upload)
-        
+
     except Exception as e:
         logger.error(f"Erro: {e}")
         new_upload.processing_status = "failed"
-        new_upload.error_message = str(e)
+        new_upload.error_message     = str(e)
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao processar: {str(e)}"
         )
-    
+
     return {
-        "id": new_upload.id,
+        "id":          new_upload.id,
         "upload_type": "anuncios",
-        "status": new_upload.processing_status,
-        "rows": new_upload.rows_processed,
-        "metrics": result.get("metrics", {}),
-        "message": "✅ Planilha de anúncios processada!"
+        "status":      new_upload.processing_status,
+        "rows":        new_upload.rows_processed,
+        "metrics":     result.get("metrics", {}),
+        "message":     "✅ Planilha de anúncios processada!"
     }
 
 
@@ -222,13 +237,13 @@ def list_uploads_by_type(
         .limit(10)
         .all()
     )
-    
+
     return [
         {
-            "id": u.id,
-            "filename": u.original_filename,
-            "status": u.processing_status,
-            "rows": u.rows_processed,
+            "id":          u.id,
+            "filename":    u.original_filename,
+            "status":      u.processing_status,
+            "rows":        u.rows_processed,
             "uploaded_at": u.uploaded_at.isoformat() if u.uploaded_at else None,
         }
         for u in uploads

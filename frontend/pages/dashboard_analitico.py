@@ -4,6 +4,8 @@ import os
 import base64
 import pandas as pd
 import plotly.graph_objects as go
+from utils.styles import aplicar_estilos
+aplicar_estilos()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://backend:8000/api/v1")
 
@@ -15,26 +17,8 @@ if "token" not in st.session_state or not st.session_state["token"]:
 
 headers = {"Authorization": f"Bearer {st.session_state['token']}"}
 
-st.markdown("""
-<style>
-    div[data-testid="stMetric"] {
-        background-color: #000000 !important;
-        border-radius: 8px;
-        padding: 12px;
-    }
-    div[data-testid="stMetric"] label,
-    div[data-testid="stMetricValue"] > div,
-    div[data-testid="stMetricDelta"] > div,
-    div[data-testid="stMetricLabel"] > div {
-        color: #ffffff !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.title("🔬 Dashboard Analítico — Faturamento × Anúncios × ICMS")
 
-st.title("🔬 Dashboard Analítico — Faturamento × Anúncios")
-
-# ── Busca dados ───────────────────────────────────────────
-# ── Paginação ─────────────────────────────────────────────
 if "pagina_vendas" not in st.session_state:
     st.session_state["pagina_vendas"] = 1
 
@@ -63,186 +47,213 @@ if data.get("message"):
         st.switch_page("pages/upload.py")
     st.stop()
 
-summary   = data["summary"]
+s         = data["summary"]
 acumulado = data["acumulado"]
 vendas    = data["vendas"]
 
-# ── Período ───────────────────────────────────────────────
-st.caption(f"📅 Período analisado: **{summary['periodo_inicio']}** até **{summary['periodo_fim']}**")
 
-def brl(val):
+def brl(val: float) -> str:
     return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+
+st.caption(f"📅 Período analisado: **{s['periodo_inicio']}** até **{s['periodo_fim']}**")
+
 # ════════════════════════════════════════════════════════════
-# 1. CARDS FINANCEIROS
+# RESUMO FINANCEIRO
+# Linha 1: 4 cards — Créditos | Débitos Op. | ICMS | Anúncios
+# Linha 2: 2 cards — Líquido sem Rebate | Líquido Real
+# Linha 3: 1 card  — Líquido Real com Rebate
 # ════════════════════════════════════════════════════════════
 st.subheader("💰 Resumo Financeiro")
 
-col1, col2, col3, col4, col5 = st.columns(5)
+# Linha 1: Créditos | Líquido da Operação | Débitos da Operação | ICMS
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric(
-        "✅ Créditos",
-        brl(summary["total_creditos"]),
-        help="Receitas por produtos + acréscimos + envio",
-    )
+    st.metric("✅ Créditos", brl(s["total_creditos"]),
+              help="Receitas por produtos + acréscimos + envio")
 with col2:
-    st.metric(
-        "❌ Débitos",
-        brl(summary["total_debitos"]),
-        help="Taxas + impostos + custos de envio + cancelamentos",
-    )
+    st.metric("🏦 Líquido da Operação", brl(s.get("total_brl_acumulado", 0)),
+              help="Total (BRL) acumulado — resultado líquido calculado pelo Mercado Livre por venda")
 with col3:
-    st.metric(
-        "💵 Líquido Original",
-        brl(summary["total_liquido"]),
-        delta=f"{summary['margem_original']:.1f}%",
-        help="Créditos − Débitos (sem descontar anúncios)",
-    )
+    st.metric("❌ Débitos da Operação", brl(s["total_debitos_op"]),
+              help="Taxas + impostos + custos de envio + cancelamentos")
 with col4:
-    st.metric(
-        "📢 Gasto com Anúncios",
-        brl(summary["total_anuncios"]),
-        delta=f"-{summary['total_anuncios']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
-        delta_color="inverse",
-        help="Total investido em anúncios patrocinados no período",
-    )
+    st.metric("🧾 ICMS Estimado", brl(s["total_icms"]),
+              help="ICMS + DIFAL estimado sobre as vendas")
+
+st.write("")
+
+# Linha 2: Gasto com Anúncios | Líquido sem Rebate | Líquido Real | Líquido Real com Rebate
+col5, col6, col7, col8 = st.columns(4)
 with col5:
-    st.metric(
-        "🏆 Líquido Real",
-        brl(summary["liquido_real"]),
-        delta=f"{summary['margem_real']:.1f}%",
-        help="Líquido Original − Gasto com Anúncios",
-    )
+    st.metric("📢 Gasto com Anúncios", brl(s["total_anuncios"]),
+              help="Total investido em anúncios patrocinados no período")
+with col6:
+    st.metric("💵 Líquido sem Rebate", brl(s["total_liquido_sem_rebate"]),
+              delta=f"{s['margem_original']:.1f}%",
+              help="Créditos − Débitos da Operação − ICMS")
+with col7:
+    st.metric("🏆 Líquido Real", brl(s["liquido_real"]),
+              delta=f"{s['margem_real']:.1f}%",
+              help="Líquido sem Rebate − Gasto com Anúncios")
+with col8:
+    st.metric("💎 Líquido Real com Rebate", brl(s.get("liquido_real_com_rebate", 0)),
+              delta=f"{s.get('margem_real_com_rebate', 0):.1f}%",
+              help="Total operação + rebate − ICMS Total − Gasto com Anúncios")
+
+st.write("")
+
+# Linha 3: Cancelamentos
+col9, _, _, _ = st.columns(4)
+with col9:
+    st.metric("↩️ Cancelamentos", brl(s.get("total_cancelamentos", 0)),
+              help="Total acumulado de cancelamentos e reembolsos no período")
 
 st.divider()
 
-# ── Comparativo visual: Líquido Original vs Líquido Real ──
+# ── Comparativo visual ────────────────────────────────────
 col_a, col_b = st.columns([2, 1])
 
 with col_a:
-    fig = go.Figure()
-    categorias = ["Créditos", "Débitos", "Líquido Original", "Gasto Anúncios", "Líquido Real"]
-    valores    = [
-        summary["total_creditos"],
-        -summary["total_debitos"],
-        summary["total_liquido"],
-        -summary["total_anuncios"],
-        summary["liquido_real"],
+    categorias = [
+        "Créditos", "Débitos Op.", "ICMS",
+        "Líquido sem Rebate", "Anúncios",
+        "Líquido Real", "Líq. Real c/ Rebate"
     ]
-    cores = ["#2ecc71", "#e74c3c", "#3498db", "#e67e22", "#27ae60"]
+    valores = [
+        s["total_creditos"],
+        -s["total_debitos_op"],
+        -s["total_icms"],
+        s["total_liquido_sem_rebate"],
+        -s["total_anuncios"],
+        s["liquido_real"],
+        s.get("liquido_real_com_rebate", 0),
+    ]
+    cores = ["#2ecc71", "#e74c3c", "#f39c12", "#3498db", "#e67e22", "#27ae60", "#1abc9c"]
+    fig = go.Figure()
     fig.add_trace(go.Bar(
         x=categorias, y=valores,
         marker_color=cores,
         text=[brl(abs(v)) for v in valores],
         textposition="outside",
     ))
-    fig.update_layout(
-        title="Composição do Resultado",
-        height=380,
-        yaxis_title="R$",
-        showlegend=False,
-    )
-    st.plotly_chart(fig, width="stretch")
+    fig.update_layout(title="Composição do Resultado", height=420,
+                      yaxis_title="R$", showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
 
 with col_b:
     st.markdown("**📊 Impacto dos Anúncios**")
-    impacto = summary["total_liquido"] - summary["liquido_real"]
-    margem_perdida = summary["margem_original"] - summary["margem_real"]
-    st.metric("Redução no Líquido", brl(impacto), delta_color="inverse")
-    st.metric("Margem Original", f"{summary['margem_original']:.1f}%")
-    st.metric("Margem Real",     f"{summary['margem_real']:.1f}%")
-    st.metric("Queda na Margem", f"{margem_perdida:.1f}pp", delta_color="inverse")
-    st.metric("Total de Vendas", summary["total_vendas"])
+    impacto        = s["total_liquido_sem_rebate"] - s["liquido_real"]
+    margem_perdida = s["margem_original"] - s["margem_real"]
+    st.metric("Redução no Líquido",   brl(impacto),                           delta_color="inverse")
+    st.metric("Margem sem Rebate",    f"{s['margem_original']:.1f}%")
+    st.metric("Margem Real",          f"{s['margem_real']:.1f}%")
+    st.metric("Queda na Margem",      f"{margem_perdida:.1f}pp",              delta_color="inverse")
+    st.metric("Margem c/ Rebate",     f"{s.get('margem_real_com_rebate', 0):.1f}%")
+    st.metric("Total de Vendas",      s["total_vendas"])
 
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# 2. ACUMULADO POR ANÚNCIO
+# ACUMULADO POR ANÚNCIO
 # ════════════════════════════════════════════════════════════
 if acumulado:
     st.subheader("📢 Investimento Acumulado por Anúncio no Período")
-
     df_ac = pd.DataFrame(acumulado)
-
-    # Gráfico horizontal
     titulos = [
-        (r["titulo"][:45] + "…" if len(r["titulo"]) > 45 else r["titulo"])
-        or r["mlb"]
+        (r["titulo"][:45] + "…" if len(r["titulo"]) > 45 else r["titulo"]) or r["mlb"]
         for _, r in df_ac.iterrows()
     ]
+    # Altura fixa mostrando ~20 registros; scroll interno para ver os demais
+    ALTURA_VISIVEL = 800  # ~20 registros × 40px
+    altura_total   = max(ALTURA_VISIVEL, len(acumulado) * 40)
+
     fig_ac = go.Figure(go.Bar(
-        x=df_ac["investimento_total"],
-        y=titulos,
-        orientation="h",
-        marker_color="#e67e22",
+        x=df_ac["investimento_total"], y=titulos,
+        orientation="h", marker_color="#e67e22",
         text=[brl(v) for v in df_ac["investimento_total"]],
         textposition="outside",
     ))
     fig_ac.update_layout(
-        height=max(300, len(acumulado) * 40),
+        height=altura_total,
         xaxis_title="Investimento Acumulado (R$)",
-        yaxis=dict(autorange="reversed"),
+        yaxis=dict(autorange="reversed", range=[len(acumulado) - 0.5, len(acumulado) - 20.5]),
         margin=dict(l=0),
     )
-    st.plotly_chart(fig_ac, width="stretch")
 
-    # Tabela detalhada
-    with st.expander("📋 Tabela: Investimento acumulado por anúncio"):
+    # Container com scroll — mostra ~20 registros e permite rolar para ver todos
+    with st.container(height=820):
+        st.plotly_chart(fig_ac, use_container_width=True)
+
+    with st.expander("📋 Tabela: Investimento acumulado por anúncio", expanded=True):
         df_ac_display = df_ac.copy()
         df_ac_display["titulo"] = df_ac_display["titulo"].str[:60].fillna(df_ac_display["mlb"])
-        df_ac_display.columns = ["Código MLB", "Título", "Investimento Total (R$)", "Qtd Vendas", "Custo por Venda (R$)"]
+        df_ac_display.columns = ["Código MLB", "Título", "Investimento Total (R$)", "Vendas Diretas", "Custo por Venda (R$)"]
         df_ac_display["Investimento Total (R$)"] = df_ac_display["Investimento Total (R$)"].apply(lambda x: f"{x:,.2f}")
         df_ac_display["Custo por Venda (R$)"]    = df_ac_display["Custo por Venda (R$)"].apply(lambda x: f"{x:,.2f}")
-        st.dataframe(df_ac_display, width="stretch", hide_index=True)
+        st.dataframe(df_ac_display, use_container_width=True, hide_index=True)
 
     st.divider()
 
 # ════════════════════════════════════════════════════════════
-# 3. TABELA DE VENDAS DETALHADA
+# TABELA DE VENDAS DETALHADA
 # ════════════════════════════════════════════════════════════
 if vendas:
-    pagination = data.get("paginacao", data.get("pagination", {}))
+    pagination  = data.get("paginacao", {})
     total       = pagination.get("total", len(vendas))
     total_pages = pagination.get("total_pages", 1)
     page_atual  = pagination.get("page", 1)
 
-    st.subheader(f"🧾 Vendas Detalhadas com Custo de Anúncio Rateado  ({total:,} vendas)")
+    st.subheader(f"🧾 Vendas Detalhadas com Custo de Anúncio e ICMS Rateado ({total:,} vendas)")
     st.caption(
-        "💡 **Líquido ML (sem anúncios)** = valor líquido calculado pelo Mercado Livre após taxas de venda, "
-        "frete e impostos — mas **não desconta** o custo de anúncios patrocinados. "
-        "O **Líquido Real** = Líquido ML − Custo Anúncio Rateado."
+        "💡 **Líquido ML** = valor após taxas do ML + rebate. "
+        "**ICMS** = estimado pelo calculador. "
+        "**Líquido Real** = Líquido ML − ICMS − Custo Anúncio Rateado."
     )
 
-    df_v = pd.DataFrame(vendas)
-
-    # Formata colunas monetárias para exibição
-    money_display = ["Receita por produtos (BRL)", "Total (BRL)", "custo_por_venda", "liquido_real"]
+    df_v         = pd.DataFrame(vendas)
     df_v_display = df_v.copy()
-    for col in money_display:
+
+    for col in ["Receita por produtos (BRL)", "Total (BRL)", "icms_total_venda", "custo_por_venda", "liquido_operacao_sem_rebate_icms", "liquido_real_com_rebate"]:
         if col in df_v_display.columns:
             df_v_display[col] = pd.to_numeric(df_v_display[col], errors="coerce").apply(
-                lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if pd.notna(x) else ""
+                lambda x: brl(x) if pd.notna(x) else ""
             )
 
-    # Renomeia para exibição
     rename = {
-        "N.º de venda":               "N.º Venda",
-        "Data da venda":              "Data",
-        "mlb":                        "Código MLB",
-        "Título do anúncio":          "Título",
-        "Variação":                   "Variação",
-        "Unidades":                   "Unid.",
-        "Receita por produtos (BRL)": "Receita Produto",
-        "Total (BRL)":                "Líquido ML (sem anúncios)",
-        "custo_por_venda":            "Custo Anúncio Rateado",
-        "liquido_real":               "Líquido Real",
+        "N.º de venda":                    "N.º Venda",
+        "Data da venda":                   "Data",
+        "mlb":                             "Código MLB",
+        "Título do anúncio":               "Título",
+        "Variação":                        "Variação",
+        "Unidades":                        "Unid.",
+        "Receita por produtos (BRL)":      "Receita Produto",
+        "Total (BRL)":                     "Líquido ML + rebate",
+        "icms_total_venda":                "ICMS",
+        "custo_por_venda":                 "Custo Anúncio Rateado",
+        "liquido_operacao_sem_rebate_icms": "Líquido Real Sem Rebate",
+        "liquido_real_com_rebate":         "Líquido Real com Rebate",
     }
-    cols_show = [c for c in rename.keys() if c in df_v_display.columns]
+    # Ordem das colunas: ... | Custo Anúncio | Líquido Real Sem Rebate | Líquido Real com Rebate
+    col_order = [
+        "N.º de venda", "Data da venda", "mlb", "Título do anúncio",
+        "Variação", "Unidades", "Receita por produtos (BRL)", "Total (BRL)",
+        "icms_total_venda", "custo_por_venda",
+        "liquido_operacao_sem_rebate_icms", "liquido_real_com_rebate",
+    ]
+    cols_show    = [c for c in col_order if c in df_v_display.columns]
     df_v_display = df_v_display[cols_show].rename(columns=rename)
+    st.dataframe(
+        df_v_display,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Título":       st.column_config.TextColumn("Título",    width="small"),
+            "Variação":     st.column_config.TextColumn("Variação",  width="small"),
+            "Código MLB":   st.column_config.TextColumn("Código MLB", width="small"),
+        }
+    )
 
-    st.dataframe(df_v_display, width="stretch", hide_index=True)
-
-    # ── Navegação de páginas ──────────────────────────────
     st.divider()
     col_p1, col_p2, col_p3 = st.columns([1, 3, 1])
     with col_p1:
@@ -261,18 +272,15 @@ if vendas:
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# 4. DOWNLOAD XLSX
+# DOWNLOAD XLSX
 # ════════════════════════════════════════════════════════════
 st.subheader("📥 Exportar Relatório")
 
 if st.button("⬇️ Gerar e Baixar XLSX", type="primary"):
     with st.spinner("Gerando planilha..."):
         try:
-            r = requests.get(
-                f"{API_BASE_URL}/dashboard/analitico/exportar",
-                headers=headers,
-                timeout=30,
-            )
+            r = requests.get(f"{API_BASE_URL}/dashboard/analitico/exportar",
+                             headers=headers, timeout=30)
             if r.status_code == 200:
                 payload = r.json()
                 if "erro" in payload:
@@ -292,11 +300,10 @@ if st.button("⬇️ Gerar e Baixar XLSX", type="primary"):
 
 st.divider()
 
-# ── Navegação ─────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("📊 Faturamento"):
-        st.switch_page("pages/dashboard.py")
+        st.switch_page("pages/dashboard_faturamento.py")
 with col2:
     if st.button("📢 Anúncios"):
         st.switch_page("pages/dashboard_anuncios.py")

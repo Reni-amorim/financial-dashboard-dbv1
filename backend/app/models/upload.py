@@ -4,7 +4,7 @@ Model de Upload - Gerencia uploads de planilhas
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
-
+from app.models.empresa import Empresa
 
 class Upload(Base):
     """
