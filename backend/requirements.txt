@@ -12,3 +12,4 @@ bcrypt==4.0.1
 python-multipart
 email-validator
 plotly==5.18.0
+alembic==1.13.1

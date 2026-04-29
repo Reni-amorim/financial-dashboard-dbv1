@@ -4,9 +4,9 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: financial_db
+    container_name: financial_db_docker
     environment:
-      POSTGRES_USER: postgres
+      POSTGRES_USER: usuario_financial
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: financial_db
     ports:
@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U usuario_financial" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
       dockerfile: Dockerfile
     container_name: financial_backend
     env_file:
-    - .env
+      - .env
     ports:
       - "8000:8000"
     volumes:

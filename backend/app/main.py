@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-from app.init_db import init_database
 from app.api import upload, auth
 from app.api import dashboard_faturamento
 from app.api import dashboard_anuncios
@@ -32,24 +31,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("🚀 Iniciando aplicação...")
-    init_database()
-    logger.info("✅ Aplicação iniciada com sucesso!")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("👋 Encerrando aplicação...")
-
-
 app.include_router(auth.router)
 app.include_router(upload.router)
 app.include_router(dashboard_faturamento.router)
-app.include_router(dashboard_anuncios.router)   # 🔥 NOVO
-app.include_router(dashboard_analitico.router)  # 🔥 NOVO
+app.include_router(dashboard_anuncios.router)   # NOVO
+app.include_router(dashboard_analitico.router)  # NOVO
 app.include_router(empresa.router)
 
 @app.get("/")
