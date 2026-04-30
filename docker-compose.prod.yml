@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-postgres:
-  image: postgres:16-alpine
-  container_name: financial_db_docker
-  restart: always
-  environment:
-    POSTGRES_USER: usuario_financial
+  postgres:
+    image: postgres:16-alpine
+    container_name: financial_db_docker
+    restart: always
+    environment:
+      POSTGRES_USER: usuario_financial
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     POSTGRES_DB: financial_db
   healthcheck:
