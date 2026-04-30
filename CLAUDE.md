@@ -20,7 +20,7 @@
 - **Processamento:** Pandas + PyArrow (Parquet)
 - **Auth:** JWT (30 min) + bcrypt
 - **Deploy:** Docker Compose
-
+- **Migrations:** Alembic (único método — `init_db.py` removido)
 ---
 
 ## Convenções de código
@@ -112,9 +112,17 @@ docker-compose build --no-cache && docker-compose up -d
 docker-compose down -v
 
 # Banco
-docker-compose exec postgres psql -U postgres -d financial_db
-docker-compose exec postgres psql -U postgres -d financial_db -c \
+# Banco
+docker exec -it financial_db_docker psql -U usuario_financial -d financial_db
+docker exec -it financial_db_docker psql -U usuario_financial -d financial_db -c \
   "SELECT id, user_id, upload_type, original_filename, processing_status FROM uploads;"
+
+# Migrations (Alembic)
+alembic upgrade head                              # aplicar migrations pendentes
+alembic revision --autogenerate -m "descricao"   # gerar nova migration
+alembic downgrade -1                              # reverter última migration
+alembic history                                   # ver histórico de migrations
+alembic current                                   # ver migration atualmente aplicada
 
 # Debug parquet
 python -c "import pandas as pd; print(pd.read_parquet('data/anuncios/1/').head())"
