@@ -38,7 +38,7 @@ def run_migrations_online():
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        url=os.environ.get("DATABASE_URL", "").replace("financial_db_docker", "localhost"),
+        url=os.environ.get("DATABASE_URL", ""),
     )
 
     with connectable.connect() as connection:
