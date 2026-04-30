@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, func, text
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
@@ -20,6 +20,10 @@ class Orders(Base):
     valor_parcela          = Column(Numeric, nullable=True)
     total_refund           = Column(Numeric, nullable=True)
     rebate_meli            = Column(Numeric, nullable=True)
+    receita_envio          = Column(Numeric, nullable=True)
+    tarifa_envio           = Column(Numeric, nullable=True)
+    custo_envio_declarado  = Column(Numeric, nullable=True, server_default=text('0'))
+    custo_diferenca_peso   = Column(Numeric, nullable=True, server_default=text('0'))
     created_at             = Column(DateTime, server_default=func.now())
     updated_at             = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_by             = Column(String(100), nullable=True)

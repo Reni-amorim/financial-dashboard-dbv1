@@ -1,8 +1,11 @@
 import os
 import sys
 from logging.config import fileConfig
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 from alembic import context
+
+load_dotenv()
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -32,10 +35,12 @@ def run_migrations_offline():
 
 def run_migrations_online():
     connectable = engine_from_config(
-        config.config_section(config.config_ini_section),
+        config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        url=os.environ.get("DATABASE_URL", "").replace("financial_db_docker", "localhost"),
     )
+
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
