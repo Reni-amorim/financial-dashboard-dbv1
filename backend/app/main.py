@@ -9,7 +9,7 @@ from app.api import upload, auth
 from app.api import dashboard_faturamento
 from app.api import dashboard_anuncios
 from app.api import dashboard_analitico
-from app.api import empresa
+from app.api import company
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,9 +34,9 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(upload.router)
 app.include_router(dashboard_faturamento.router)
-app.include_router(dashboard_anuncios.router)   # NOVO
-app.include_router(dashboard_analitico.router)  # NOVO
-app.include_router(empresa.router)
+app.include_router(dashboard_anuncios.router)
+app.include_router(dashboard_analitico.router)
+app.include_router(company.router)
 
 @app.get("/")
 def root():

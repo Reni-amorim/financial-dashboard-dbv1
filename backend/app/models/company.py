@@ -11,6 +11,7 @@ class Company(Base):
     name           = Column(String(255), nullable=False)
     document       = Column(String(20), nullable=True)
     state_origin   = Column(String(2), nullable=True)
+    regime_tributario = Column(String(50), nullable=True)
     created_at     = Column(DateTime, server_default=func.now())
     updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_by     = Column(String(100), nullable=True)
