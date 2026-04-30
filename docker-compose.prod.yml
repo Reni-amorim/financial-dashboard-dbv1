@@ -7,16 +7,17 @@ services:
     restart: always
     environment:
       POSTGRES_USER: usuario_financial
-    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    POSTGRES_DB: financial_db
-  healthcheck:
-    test: [ "CMD-SHELL", "pg_isready -U usuario_financial" ]
-    interval: 10s
-    timeout: 5s
-    retries: 5
-  networks:
-    - financial_network
-    # Não expõe porta 5432 para fora!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: financial_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U usuario_financial" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - financial_network
 
   backend:
     build:
@@ -31,8 +32,8 @@ services:
     networks:
       - financial_network
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    # Sem --reload em produção
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build:
