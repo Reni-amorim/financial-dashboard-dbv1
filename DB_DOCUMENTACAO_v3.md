@@ -436,3 +436,30 @@ JOIN "user" u ON u.id = c.user_id
 WHERE c.id = <company_id>
   AND c.deleted_at IS NULL;
 ```
+
+
+
+
+## Análise do Schema — Fluxo de Usuários
+
+O schema atual suporta quase todo o fluxo, mas tem um problema na deleção do admin.
+
+### O que funciona
+- Admin criado com `company_id=NULL` ✅
+- Admin cria company com `user_id=admin.id` ✅
+- Backend atualiza `user.company_id` após criar company ✅
+- Admin cria usuários market/fiscal com `company_id` ✅
+- Deletar market/fiscal sem afetar company ✅
+
+### O que tem problema
+A deleção do admin falha porque:
+- Ao tentar deletar a company, os usuários market/fiscal ainda têm `company_id` apontando para ela → FK constraint violation
+- Ao tentar deletar o admin, a company ainda tem `user_id` apontando para ele → FK constraint violation
+
+### Correção necessária
+A FK `fk_user_company_id` (`user.company_id → company.id`) precisa de `ON DELETE SET NULL`.
+Assim, quando a company for deletada, o `company_id` dos usuários market/fiscal vira NULL automaticamente.
+
+Na migration, alterar:
+```python
+op.create_foreign_key('fk_user_company_id', 'user', 'company', ['company_id'], ['id'], ondelete='SET NULL')

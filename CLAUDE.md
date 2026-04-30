@@ -7,7 +7,7 @@
 | `CLAUDE.md` | Este arquivo — contexto geral, convenções, estado atual |
 | `ARCHITECTURE_v3.md` | Arquitetura detalhada, endpoints, modelo de dados, fluxos, decisões técnicas |
 | `REACT_MIGRATION_v3.md` | Guia de migração Streamlit → React, stack, componentes, checklist |
-| `db_meli_documentacao_v3.md` | Documentação do banco de dados e estrutura das planilhas Mercado Livre |
+| `DB_DOCUMENTACAO_v3.md` | Documentação do banco de dados e estrutura das planilhas Mercado Livre |
 
 > Antes de implementar qualquer feature, leia os arquivos relevantes acima.
 
