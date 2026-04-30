@@ -210,6 +210,7 @@ Pedidos de venda sincronizados do Mercado Livre.
 | `tarifa_envio` | `numeric` | YES | — | Tarifa de envio cobrada pelo ML |
 | `custo_envio_declarado` | `numeric` | YES | `0` | Custo de envio declarado |
 | `custo_diferenca_peso` | `numeric` | YES | `0` | Custo por diferença de peso |
+| `created_at` | `timestamp` | YES | `CURRENT_TIMESTAMP` | Data de criação ¹ |
 | `updated_at` | `timestamp` | YES | `CURRENT_TIMESTAMP` | Data de atualização ¹ |
 | `created_by` | `varchar(100)` | YES | — | Usuário que criou o registro ¹ |
 | `updated_by` | `varchar(100)` | YES | — | Usuário que fez a última atualização ¹ |
@@ -228,8 +229,8 @@ Itens (produtos) de cada pedido. Vinculados a `orders` via `order_id`.
 |--------|------|------|---------|-----------|
 | `id` | `integer` | NOT NULL | auto-increment | **PK** — Identificador único |
 | `order_id` | `integer` | NOT NULL | — | **FK → orders.id** |
-| `external_item_id` | `varchar(50)` | NOT NULL | — | ID do item no Mercado Livre (MLB...) |
-| `sku` | `text` | **YES** | — | ⚠️ SKU interno — pode ser NULL |
+| `external_item_id` | `varchar(50)` | YES | — | ID do item no Mercado Livre (MLB...) |
+| `sku` | `text` | YES | — | ⚠️ SKU interno — pode ser NULL |
 | `titulo` | `varchar(255)` | NOT NULL | — | Título do anúncio |
 | `quantidade` | `integer` | NOT NULL | — | Quantidade vendida |
 | `preco_unitario` | `numeric` | NOT NULL | — | Preço unitário |
@@ -437,12 +438,13 @@ WHERE c.id = <company_id>
   AND c.deleted_at IS NULL;
 ```
 
+---
 
+## ✅ Análise do Schema — Fluxo de Usuários
 
+> **Realizada em:** 2026-04-29 — **Status:** Concluída
 
-## Análise do Schema — Fluxo de Usuários
-
-O schema atual suporta quase todo o fluxo, mas tem um problema na deleção do admin.
+O schema suporta todo o fluxo de usuários após a correção aplicada na migration.
 
 ### O que funciona
 - Admin criado com `company_id=NULL` ✅
@@ -451,15 +453,21 @@ O schema atual suporta quase todo o fluxo, mas tem um problema na deleção do a
 - Admin cria usuários market/fiscal com `company_id` ✅
 - Deletar market/fiscal sem afetar company ✅
 
-### O que tem problema
-A deleção do admin falha porque:
-- Ao tentar deletar a company, os usuários market/fiscal ainda têm `company_id` apontando para ela → FK constraint violation
-- Ao tentar deletar o admin, a company ainda tem `user_id` apontando para ele → FK constraint violation
+### Problema identificado e corrigido
+A deleção do admin falharia porque:
+- Ao tentar deletar a company, os usuários market/fiscal ainda tinham `company_id` apontando para ela → FK constraint violation
+- Ao tentar deletar o admin, a company ainda tinha `user_id` apontando para ele → FK constraint violation
 
-### Correção necessária
-A FK `fk_user_company_id` (`user.company_id → company.id`) precisa de `ON DELETE SET NULL`.
-Assim, quando a company for deletada, o `company_id` dos usuários market/fiscal vira NULL automaticamente.
+### Correção aplicada ✅ Feito
+A FK `fk_user_company_id` (`user.company_id → company.id`) recebeu `ON DELETE SET NULL`.
+Quando a company é deletada, o `company_id` dos usuários market/fiscal vira `NULL` automaticamente.
 
-Na migration, alterar:
 ```python
 op.create_foreign_key('fk_user_company_id', 'user', 'company', ['company_id'], ['id'], ondelete='SET NULL')
+```
+
+### Fluxo de deleção do admin (correto após correção)
+```
+1. DELETE company  →  company_id dos market/fiscal vira NULL automaticamente
+2. DELETE admin    →  OK, company já não existe
+```
