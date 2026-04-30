@@ -21,6 +21,7 @@
 - **Auth:** JWT (30 min) + bcrypt
 - **Deploy:** Docker Compose
 - **Migrations:** Alembic (único método — `init_db.py` removido)
+
 ---
 
 ## Convenções de código
@@ -39,8 +40,10 @@
 
 - `backend/app/services/anuncios_processor.py` — processador principal de anúncios
 - `backend/app/services/xlsx_processor.py` — processador de faturamento
-- `tests/test_processor.py` — testes de validação
 - `backend/app/api/dashboard.py` — padrão a seguir para novos endpoints
+- `backend/app/api/company.py` — CRUD de empresa (company)
+- `backend/app/schemas/company.py` — schemas Pydantic de company (validação de state_origin e regime_tributario)
+- `tests/test_processor.py` — testes de validação
 
 ---
 
@@ -104,17 +107,16 @@ uvicorn app.main:app --reload --app-dir backend
 pytest tests/ -v
 
 # Docker
-docker-compose up -d
-docker-compose logs -f backend
-docker-compose logs -f frontend
-docker-compose restart backend
-docker-compose build --no-cache && docker-compose up -d
-docker-compose down -v
+docker compose up -d
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose restart backend
+docker compose build --no-cache && docker compose up -d
+docker compose down -v
 
 # Banco
-# Banco
-docker exec -it financial_db_docker psql -U usuario_financial -d financial_db
-docker exec -it financial_db_docker psql -U usuario_financial -d financial_db -c \
+docker compose exec financial_db_docker psql -U usuario_financial -d financial_db
+docker compose exec financial_db_docker psql -U usuario_financial -d financial_db -c \
   "SELECT id, user_id, upload_type, original_filename, processing_status FROM uploads;"
 
 # Migrations (Alembic)

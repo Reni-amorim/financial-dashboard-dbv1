@@ -1,7 +1,7 @@
-# 📦 Documentação do Banco de Dados — `meli` (v3)
+# 📦 Documentação do Banco de Dados — `financial_db` (v3)
 
-> **Banco:** meli
-> **Usuário:** usuario_meli
+> **Banco:** financial_db
+> **Usuário:** usuario_financial
 > **Tecnologia:** PostgreSQL 16 (via Docker)
 > **Servidor:** VM Digital Ocean (Ubuntu)
 > **Atualizado em:** 2026
@@ -14,18 +14,18 @@
 |-----------|-------|
 | **Host** | IP da VM (Docker interno: `localhost`) |
 | **Porta** | `5432` |
-| **Database** | `meli` |
-| **Usuário** | `usuario_meli` |
-| **Container** | `postgres_db` |
+| **Database** | `financial_db` |
+| **Usuário** | `usuario_financial` |
+| **Container** | `financial_db_docker` |
 
 **String de conexão:**
 ```
-postgresql://usuario_meli:****@localhost:5432/meli
+postgresql://usuario_financial:****@localhost:5432/financial_db
 ```
 
 **Acesso via Docker:**
 ```bash
-docker exec -it postgres_db psql -U usuario_meli -d meli
+docker exec -it financial_db_docker psql -U usuario_financial -d financial_db
 ```
 
 ---
@@ -116,6 +116,8 @@ Empresa cadastrada pelo user admin após o pagamento. Filha de `user`, pai de to
 | `user_id` | `integer` | NOT NULL | — | **FK → user.id** — user admin dono da empresa |
 | `name` | `varchar(255)` | NOT NULL | — | Nome da empresa |
 | `document` | `varchar(20)` | YES | — | CNPJ/CPF |
+| `state_origin` | `varchar(2)` | YES | — | UF de origem da empresa (ex: SP, RJ) |
+| `regime_tributario` | `varchar(50)` | YES | — | Regime tributário (Simples Nacional, Lucro Presumido, Lucro Real) |
 | `created_at` | `timestamp` | YES | `CURRENT_TIMESTAMP` | Data de criação ¹ |
 | `updated_at` | `timestamp` | YES | `CURRENT_TIMESTAMP` | Data de atualização ¹ |
 | `created_by` | `varchar(100)` | YES | — | Usuário que criou o registro ¹ |
@@ -440,7 +442,7 @@ WHERE c.id = <company_id>
 
 ---
 
-## ✅ Análise do Schema — Fluxo de Usuários
+## ✅ Análise do Schema — Fluxo de Usuários   - Esta observação não pode ser apagada.
 
 > **Realizada em:** 2026-04-29 — **Status:** Concluída
 
