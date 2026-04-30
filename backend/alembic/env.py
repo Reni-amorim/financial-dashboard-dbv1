@@ -1,5 +1,6 @@
 import os
 import sys
+import socket
 from logging.config import fileConfig
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
@@ -27,9 +28,16 @@ config = context.config
 fileConfig(config.config_file_name)
 target_metadata = Base.metadata
 
+def _get_url():
+    url = os.environ.get("DATABASE_URL", "")
+    try:
+        socket.gethostbyname("financial_db_docker")
+    except socket.gaierror:
+        url = url.replace("financial_db_docker", "localhost")
+    return url
+
 def run_migrations_offline():
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(url=_get_url(), target_metadata=target_metadata, literal_binds=True)
     with context.begin_transaction():
         context.run_migrations()
 
@@ -38,7 +46,7 @@ def run_migrations_online():
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        url=os.environ.get("DATABASE_URL", ""),
+        url=_get_url(),
     )
 
     with connectable.connect() as connection:

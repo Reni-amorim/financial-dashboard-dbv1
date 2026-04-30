@@ -12,7 +12,7 @@ import json
 from app.db.database import get_db
 from app.models.user import User
 from app.models.upload import Upload
-from app.models.empresa import Empresa                          # ← NOVO
+from app.models.company import Company
 from app.core.deps import get_current_user
 from app.services.xlsx_processor import process_xlsx_to_parquet
 from app.services.anuncios_processor import process_anuncios_to_parquet
@@ -35,21 +35,21 @@ async def upload_faturamento(
         )
 
     # ── Busca empresa do usuário para obter estado de origem ──
-    empresa = (
-        db.query(Empresa)
-        .filter(Empresa.user_id == current_user.id)
+    company = (
+        db.query(Company)
+        .filter(Company.user_id == current_user.id)
         .first()
     )
 
-    if not empresa:
+    if not company:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cadastre uma empresa antes de fazer o upload. "
                    "O estado da empresa é necessário para o cálculo de ICMS."
         )
 
-    estado_origem = empresa.estado
-    logger.info(f"🏢 Empresa: {empresa.nome} | Estado origem: {estado_origem}")
+    estado_origem = company.state_origin
+    logger.info(f"🏢 Empresa: {company.name} | Estado origem: {estado_origem}")
 
     # ── Deleta uploads anteriores de faturamento deste usuário ─
     previous_uploads = (
