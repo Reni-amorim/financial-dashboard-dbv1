@@ -1,4 +1,4 @@
-# Refactor: Extractor DB Externo — Documentação do Processo
+# Extractor DB Externo — Documentação do Processo
 
 > Estado: **nada implementado ainda**. Todo o trabalho descrito abaixo é pendente.
 > Schema externo de referência: `meli` v1 (ver `doc_dbv1.md`).
