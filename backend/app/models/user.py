@@ -18,5 +18,5 @@ class User(Base):
 
     company       = relationship("Company", foreign_keys=[company_id],
                                  back_populates="users")
-    owned_company = relationship("Company", foreign_keys="Company.user_id",
+    owned_company = relationship("Company", foreign_keys="Company.admin_user_id",
                                  back_populates="owner", uselist=False)

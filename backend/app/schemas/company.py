@@ -36,7 +36,7 @@ class CompanyUpdate(BaseModel):
 
 class CompanyOut(BaseModel):
     id:                int
-    user_id:           int
+    admin_user_id:     int
     name:              str
     document:          Optional[str]
     state_origin:      Optional[str]

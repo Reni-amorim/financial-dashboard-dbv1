@@ -37,7 +37,7 @@ async def upload_faturamento(
     # ── Busca empresa do usuário para obter estado de origem ──
     company = (
         db.query(Company)
-        .filter(Company.user_id == current_user.id)
+        .filter(Company.admin_user_id == current_user.id)
         .first()
     )
 

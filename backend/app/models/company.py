@@ -7,7 +7,7 @@ class Company(Base):
     __tablename__ = "company"
 
     id             = Column(Integer, primary_key=True, autoincrement=True)
-    user_id        = Column(Integer, ForeignKey("user.id"), nullable=False)
+    admin_user_id  = Column(Integer, ForeignKey("user.id"), nullable=False)
     name           = Column(String(255), nullable=False)
     document       = Column(String(20), nullable=True)
     state_origin   = Column(String(2), nullable=True)
@@ -18,7 +18,7 @@ class Company(Base):
     updated_by     = Column(String(100), nullable=True)
     deleted_at     = Column(DateTime, nullable=True)
 
-    owner      = relationship("User", foreign_keys=[user_id], back_populates="owned_company")
+    owner      = relationship("User", foreign_keys=[admin_user_id], back_populates="owned_company")
     users      = relationship("User", foreign_keys="User.company_id", back_populates="company")
     businesses = relationship("Business", back_populates="company")
     products   = relationship("Product", back_populates="company")

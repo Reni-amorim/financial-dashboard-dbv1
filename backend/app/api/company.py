@@ -17,8 +17,13 @@ def criar_company(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas usuários com role 'admin' podem criar uma company.",
+        )
     company = Company(
-        user_id=current_user.id,
+        admin_user_id=current_user.id,
         name=payload.name,
         document=payload.document,
         state_origin=payload.state_origin.upper(),
@@ -37,7 +42,7 @@ def listar_companies(
 ):
     return (
         db.query(Company)
-        .filter(Company.user_id == current_user.id)
+        .filter(Company.admin_user_id == current_user.id)
         .order_by(Company.created_at.desc())
         .all()
     )
@@ -51,7 +56,7 @@ def buscar_company(
 ):
     company = (
         db.query(Company)
-        .filter(Company.id == company_id, Company.user_id == current_user.id)
+        .filter(Company.id == company_id, Company.admin_user_id == current_user.id)
         .first()
     )
     if not company:
@@ -66,9 +71,14 @@ def atualizar_company(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas usuários com role 'admin' podem editar uma company.",
+        )
     company = (
         db.query(Company)
-        .filter(Company.id == company_id, Company.user_id == current_user.id)
+        .filter(Company.id == company_id, Company.admin_user_id == current_user.id)
         .first()
     )
     if not company:
@@ -90,6 +100,11 @@ def deletar_company(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas usuários com role 'admin' podem excluir uma company.",
+        )
     company = (
         db.query(Company)
         .filter(Company.id == company_id, Company.user_id == current_user.id)
