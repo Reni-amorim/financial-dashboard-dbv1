@@ -10,6 +10,7 @@ from app.api import dashboard_faturamento
 from app.api import dashboard_anuncios
 from app.api import dashboard_analitico
 from app.api import company
+from app.api import business
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +38,7 @@ app.include_router(dashboard_faturamento.router)
 app.include_router(dashboard_anuncios.router)
 app.include_router(dashboard_analitico.router)
 app.include_router(company.router)
+app.include_router(business.router)
 
 @app.get("/")
 def root():

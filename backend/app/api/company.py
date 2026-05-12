@@ -107,7 +107,7 @@ def deletar_company(
         )
     company = (
         db.query(Company)
-        .filter(Company.id == company_id, Company.user_id == current_user.id)
+        .filter(Company.id == company_id, Company.admin_user_id == current_user.id)
         .first()
     )
     if not company:

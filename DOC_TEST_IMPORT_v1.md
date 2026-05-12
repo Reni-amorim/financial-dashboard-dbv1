@@ -68,6 +68,28 @@ git push -u origin testv1
 
 ---
 
+### Bloco 1 — Migration: renomear `Company.user_id` → `admin_user_id` + validação de role
+
+**Editar `backend/app/models/company.py`:**
+- Renomear `user_id` → `admin_user_id` na Column e no relationship `owner`.
+
+**Editar `backend/app/models/user.py`:**
+- Ajustar `owned_company`: `foreign_keys="Company.admin_user_id"`.
+
+**Editar `backend/app/schemas/company.py`:**
+- Em `CompanyOut`: `user_id: int` → `admin_user_id: int`.
+
+**Editar `backend/app/api/company.py`:**
+- Substituir todas as ocorrências de `Company.user_id` por `Company.admin_user_id`.
+- Substituir `user_id=current_user.id` por `admin_user_id=current_user.id` na criação.
+- Adicionar validação de role `"admin"` em `criar_company`, `atualizar_company` e `deletar_company`:
+```python
+if current_user.role != "admin":
+    raise HTTPException(status_code=403, detail="Apenas usuários com role 'admin' podem criar uma company.")
+```
+
+---
+
 ### Bloco 1 — Migration: renomear `Company.user_id` → `admin_user_id`
 
 **Editar `backend/app/models/company.py`:**
