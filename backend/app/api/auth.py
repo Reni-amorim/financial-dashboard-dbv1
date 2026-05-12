@@ -12,10 +12,6 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 @router.post("/register", status_code=201, response_model=UserOut)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
-    exists_user = db.query(User).filter(User.username == payload.username).first()
-    if exists_user:
-        raise HTTPException(status_code=400, detail="Username já existe")
-
     exists_email = db.query(User).filter(User.email == payload.email).first()
     if exists_email:
         raise HTTPException(status_code=400, detail="Email já existe")
@@ -27,6 +23,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 
     user = User(
         username=payload.username,
+        name=payload.name,
         email=payload.email,
         password_hash=password_hash,
     )
