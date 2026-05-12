@@ -53,9 +53,10 @@ def login(username, password):
         st.error("Usuário ou senha inválidos")
 
 
-def register(username, email, password):
+def register(username, name, email, password):
     data = {
         "username": username,
+        "name": name,
         "email": email,
         "password": password
     }
@@ -68,8 +69,11 @@ def register(username, email, password):
     if response.status_code == 201:
         st.success("Usuário registrado com sucesso! Faça login.")
     else:
-        st.error("Erro ao registrar usuário")
-
+        try:
+            detail = response.json().get("detail")
+        except Exception:
+            detail = response.text
+        st.error(f"Erro ao registrar usuário: {detail}")
 
 def logout():
     st.session_state["token"] = None
@@ -97,11 +101,12 @@ if not st.session_state["token"]:
         st.subheader("📝 Registrar")
 
         new_username = st.text_input("Novo Usuário")
+        new_name = st.text_input("Nome completo")
         new_email = st.text_input("Email")
         new_password = st.text_input("Nova Senha", type="password")
 
         if st.button("Registrar"):
-            register(new_username, new_email, new_password)
+            register(new_username, new_name, new_email, new_password)
 
 # ==============================
 # SE ESTIVER LOGADO
