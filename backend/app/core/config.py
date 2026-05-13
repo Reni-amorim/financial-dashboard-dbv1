@@ -5,3 +5,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@postgre
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+# =========================
+# EXTERNAL DATABASE (meli)
+# =========================
+EXTERNAL_DB_URL = os.getenv("EXTERNAL_DB_URL", "")
