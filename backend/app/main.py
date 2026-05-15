@@ -51,6 +51,17 @@ def root():
 def health():
     return {"status": "healthy"}
 
+@app.get("/health/external-db")
+def health_external_db():
+    from app.db.external_database import test_external_connection
+    from fastapi import HTTPException
+    try:
+        test_external_connection()
+        return {"status": "healthy", "db": "meli"}
+    except Exception as e:
+        logger.error(f"External DB check falhou: {e}")
+        raise HTTPException(status_code=503, detail=f"External DB indisponível: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn
