@@ -1,6 +1,6 @@
 # Implantação do Extractor — Opção A (Síncrono, JOIN único)
 
-> Estado: **nada implementado**. Todo o trabalho abaixo é pendente.
+> Estado: Blocos 0–4 concluídos. Bloco 5 em andamento.
 > Schema externo de referência: `meli` v1 (ver `doc_dbv1.md`).
 > Branch de trabalho: `testv1` no fork `financial-dashboard-test`.
 
@@ -77,7 +77,10 @@ git push -u origin testv1
 ### Bloco 1 — Migration: renomear `Company.user_id` → `admin_user_id` + validação de role
 
 **Editar `backend/app/models/company.py`:**
-- Renomear `user_id` → `admin_user_id` na Column e no relationship `owner`.
+```python
+admin_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+```
+Atualizar relacionamento `owner = relationship("User", foreign_keys=[admin_user_id], ...)`.
 
 **Editar `backend/app/models/user.py`:**
 - Ajustar `owned_company`: `foreign_keys="Company.admin_user_id"`.
@@ -89,27 +92,14 @@ git push -u origin testv1
 - Substituir todas as ocorrências de `Company.user_id` por `Company.admin_user_id`.
 - Substituir `user_id=current_user.id` por `admin_user_id=current_user.id` na criação.
 - Adicionar validação de role `"admin"` em `criar_company`, `atualizar_company` e `deletar_company`:
-```python
-if current_user.role != "admin":
-    raise HTTPException(status_code=403, detail="Apenas usuários com role 'admin' podem criar uma company.")
-```
+  ```python
+  if current_user.role != "admin":
+      raise HTTPException(status_code=403, detail="Apenas usuários com role 'admin' podem criar uma company.")
+  ```
 
----
-
-### Bloco 1 — Migration: renomear `Company.user_id` → `admin_user_id`
-
-**Editar `backend/app/models/company.py`:**
-```python
-admin_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-```
-Atualizar relacionamento `owner = relationship("User", foreign_keys=[admin_user_id], ...)`.
-
-**Atualizar referências:**
-- `backend/app/schemas/company.py` — renomear o campo no Pydantic.
-- `backend/app/api/company.py` — usar `admin_user_id` nas queries.
+**Atualizar referências em outros arquivos:**
 - `backend/app/api/upload.py` — `Company.user_id` aparece em filtros, trocar.
 - `backend/app/api/dashboard_*.py` — idem.
-- `backend/app/models/user.py` — ajustar `relationship` `owned_company` para `foreign_keys=[Company.admin_user_id]`.
 
 **Migration:**
 ```bash
@@ -225,8 +215,8 @@ def test_external_connection() -> bool:
         c.execute(text("SELECT 1"))
     return True
 ```
-**Para Docker Compose com banco em outro projeto:** adicionar a network externa
-ao `docker-compose.prod.yml` do app, no service `backend`:
+
+**Para Docker Compose com banco em outro projeto:** adicionar a network externa ao `docker-compose.prod.yml` do app, no service `backend`:
 
 ```yaml
 services:
@@ -405,18 +395,6 @@ def atualizar_faturamento(
    - `with st.spinner("Buscando dados do Mercado Livre..."): POST /atualizar?account_id={selected['id']}`.
    - Em sucesso, `st.rerun()`.
    - Em erro, `st.error(detail)`.
-3. Seção **"5. Pontos de atenção"**
-**Acrescentar item:**
-```markdown
-- **Role read-only:** criar com superuser da instância (não com o owner do banco
-  se ele não tiver `CREATEROLE`). GRANTs aplicados em `SCHEMA public`, não em
-  schema chamado `meli` (o `meli` é nome do **database**).
-- **Docker network:** quando o `meli` está em outro `docker-compose.yml`,
-  o backend precisa entrar na network desse projeto (`external: true` no compose).
-  Resolução de DNS interno usa o `container_name` do Postgres.
-
-```
-
 4. Carregar dashboard com `GET /api/v1/dashboard/?account_id={selected['id']}`.
 
 ---
@@ -432,12 +410,12 @@ def atualizar_faturamento(
 7. Validar:
    - Arquivo em `data/faturamento/{user_id}/{account_id}/`.
    - Métricas batem com o esperado.
-   - Comparar 1-2 pedidos manualmente entre `meli.orders` e o dashboard.
+   - Comparar 1-2 pedidos manualmente entre `meli.public.orders` e o dashboard.
 8. Repetir com um segundo Account para validar isolamento por pasta.
 
 ---
 
-## 4. Mapeamento de colunas (`meli.orders` + JOINs → `xlsx_processor`)
+## 4. Mapeamento de colunas (`public.orders` + JOINs → `xlsx_processor`)
 
 | Origem                                            | Coluna `xlsx_processor`                                          |
 |---------------------------------------------------|------------------------------------------------------------------|
@@ -470,6 +448,7 @@ def atualizar_faturamento(
 - **`shipping` ausente:** se não houver shipping para um pedido, `Estado.1` vem `NULL` e o ICMS dessa linha cai para 0 (já tratado em `_calcular_icms_linha`).
 - **Volume grande:** se uma extração demorar mais de 30s, considerar migrar para job assíncrono (Opção C do refactor original) e sincronização incremental por `updated_at` (Opção D).
 - **Renomear `user_id`:** garantir que todos os endpoints sejam atualizados antes de aplicar a migration, senão a API quebra.
+
 ---
 
 ## 6. Contexto de dados (resumo)
@@ -482,10 +461,10 @@ financial_db.users.user_id
                                         └── financial_db.account.marketplace_id ─┐
                                                                                   │
                               (read-only)                                         ▼
-                                                                meli.account.marketplace_id
-                                                                       └── meli.orders.account_id
-                                                                                 ├── meli.shipping (LEFT)
-                                                                                 └── meli.billing  (LEFT)
+                                                              meli.public.account.marketplace_id
+                                                                     └── meli.public.orders.account_id
+                                                                               ├── meli.public.shipping (LEFT)
+                                                                               └── meli.public.billing  (LEFT)
 ```
 
 ---
