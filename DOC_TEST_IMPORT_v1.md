@@ -43,13 +43,19 @@ GET /api/v1/dashboard/?account_id=X lê o Parquet correspondente
 
 ---
 
-## 2. Schema externo `meli` — pontos relevantes
+## 2. Banco externo `meli` — pontos relevantes
 
-- Tabela de pedidos: **`orders`**.
+> **Nota:** o nome `meli` refere-se ao **banco** (database), não a um schema.
+> Na v1 do schema (deployment atual), as tabelas do extractor estão em **`public`**.
+> Outros schemas existentes: `ads` (anúncios — escopo de outro bloco) e `auditoria` (logs).
+
+- Database: **`meli`** (PostgreSQL 16).
+- Schema das tabelas do extractor: **`public`** (default no `search_path`, não precisa prefixo na SQL).
+- Tabela de pedidos: **`public.orders`**.
 - `orders.account_id → account.id`; `account.marketplace_id` (bigint) é o seller_id público.
 - `orders.data_criacao` é **`timestamp`** (sem ambiguidade de parsing).
 - Soft delete via `deleted_at IS NULL` em quase todas as tabelas.
-- Views úteis: `v_accounts_ativas`, `v_business_ativos`.
+- Views úteis: `public.v_accounts_ativas`, `public.v_business_ativos`.
 - ICMS exige colunas que vêm de `shipping` (UF destino) e `billing` (doc + IE).
 
 ---
@@ -192,7 +198,9 @@ class AccountOut(AccountBase):
 
 **`.env`:**
 ```env
-EXTERNAL_DB_URL=postgresql://meli_readonly:senha@host:5432/meli
+# Quando o banco externo roda em outro docker-compose na MESMA máquina:
+EXTERNAL_DB_URL=postgresql://meli_readonly:senha@postgres_db:5432/meli
+# (host = nome do container do Postgres; backend precisa estar na mesma docker network)
 ```
 
 **Criar `backend/app/db/external_database.py`:**
@@ -216,6 +224,23 @@ def test_external_connection() -> bool:
     with get_external_engine().connect() as c:
         c.execute(text("SELECT 1"))
     return True
+```
+**Para Docker Compose com banco em outro projeto:** adicionar a network externa
+ao `docker-compose.prod.yml` do app, no service `backend`:
+
+```yaml
+services:
+  backend:
+    networks:
+      - financial_network
+      - meli_external
+
+networks:
+  financial_network:
+    driver: bridge
+  meli_external:
+    external: true
+    name: <nome_real_da_network>   # descobrir com: docker network ls
 ```
 
 ---
@@ -380,6 +405,18 @@ def atualizar_faturamento(
    - `with st.spinner("Buscando dados do Mercado Livre..."): POST /atualizar?account_id={selected['id']}`.
    - Em sucesso, `st.rerun()`.
    - Em erro, `st.error(detail)`.
+3. Seção **"5. Pontos de atenção"**
+**Acrescentar item:**
+```markdown
+- **Role read-only:** criar com superuser da instância (não com o owner do banco
+  se ele não tiver `CREATEROLE`). GRANTs aplicados em `SCHEMA public`, não em
+  schema chamado `meli` (o `meli` é nome do **database**).
+- **Docker network:** quando o `meli` está em outro `docker-compose.yml`,
+  o backend precisa entrar na network desse projeto (`external: true` no compose).
+  Resolução de DNS interno usa o `container_name` do Postgres.
+
+```
+
 4. Carregar dashboard com `GET /api/v1/dashboard/?account_id={selected['id']}`.
 
 ---
@@ -426,12 +463,13 @@ def atualizar_faturamento(
 
 ## 5. Pontos de atenção
 
-- **Conexão read-only:** crie um role Postgres com `GRANT CONNECT, USAGE, SELECT` apenas no schema `meli` e use ele em `EXTERNAL_DB_URL`.
+- **Conexão read-only:** crie um role Postgres com `GRANT CONNECT, USAGE, SELECT` apenas no schema `public` (onde estão as tabelas do extractor) e use ele em `EXTERNAL_DB_URL`.
+- **Role read-only:** criar com superuser da instância (não com o owner do banco se ele não tiver `CREATEROLE`). GRANTs aplicados em `SCHEMA public`, não em schema chamado `meli` (o `meli` é nome do **database**, não de um schema).
+- **Docker network:** quando o `meli` está em outro `docker-compose.yml`, o backend precisa entrar na network desse projeto (`external: true` no compose). Resolução de DNS interno usa o `container_name` do Postgres.
 - **`Tipo de contribuinte`:** estamos inferindo `Contribuinte` quando `billing.ie` existe. Confirmar regra com a equipe.
 - **`shipping` ausente:** se não houver shipping para um pedido, `Estado.1` vem `NULL` e o ICMS dessa linha cai para 0 (já tratado em `_calcular_icms_linha`).
 - **Volume grande:** se uma extração demorar mais de 30s, considerar migrar para job assíncrono (Opção C do refactor original) e sincronização incremental por `updated_at` (Opção D).
 - **Renomear `user_id`:** garantir que todos os endpoints sejam atualizados antes de aplicar a migration, senão a API quebra.
-
 ---
 
 ## 6. Contexto de dados (resumo)
@@ -454,11 +492,11 @@ financial_db.users.user_id
 
 ## 7. Checklist resumido
 
-- [ ] Bloco 0 — Branch `testv1` criado no fork.
-- [ ] Bloco 1 — Migration `user_id → admin_user_id` em `Company`.
-- [ ] Bloco 2 — Schemas + API CRUD de **Business**.
-- [ ] Bloco 3 — Schemas + API CRUD de **Account**.
-- [ ] Bloco 4 — `.env` + `external_database.py`.
+- [x] Bloco 0 — Branch `testv1` criado no fork.
+- [x] Bloco 1 — Migration `user_id → admin_user_id` em `Company`.
+- [x] Bloco 2 — Schemas + API CRUD de **Business**.
+- [x] Bloco 3 — Schemas + API CRUD de **Account**.
+- [x] Bloco 4 — `.env` + `external_database.py` + endpoint `/health/external-db` + network Docker compartilhada.
 - [ ] Bloco 5 — `faturamento_extractor.py` com `extract_and_cache(...)`.
 - [ ] Bloco 6 — `POST /dashboard/atualizar`, `GET /dashboard/accounts`, `GET /dashboard/?account_id=`.
 - [ ] Bloco 7 — `cadastro_company.py` (renomeado, 3 abas) + selectbox/botão no dashboard.

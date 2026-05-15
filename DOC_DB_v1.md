@@ -278,6 +278,113 @@ O quarteto padrão de auditoria é `created_at` / `updated_at` / `created_by` / 
 | `shipping`      | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `product`       | ✅ | ✅ | ❌ | ❌ | ❌ |
 
+
+
+---
+
+## Conexão usada na implantação (Bloco 4 do `DOC_TEST_IMPORT_v1.md`)
+
+Sessão de configuração do extractor (financial-dashboard-dbv1 ↔ banco externo `meli`).
+
+### Infraestrutura
+
+| Item                          | Valor                                       |
+|-------------------------------|---------------------------------------------|
+| Host (servidor)               | `ubuntu-s-1vcpu-1gb-sfo3-01` (DigitalOcean) |
+| Projeto Docker (banco)        | `~/projeto-meli` (usuário `evandro`)        |
+| Projeto Docker (app)          | `~/financial-dashboard-dbv1` (usuário `reni`) |
+| Service Postgres no compose   | `postgres`                                  |
+| Container Postgres            | `postgres_db`                               |
+| Imagem                        | `postgres:16`                               |
+| Porta interna                 | `5432` (não publicada no host)              |
+| Docker network compartilhada  | `projeto-meli_app_rede` (driver `bridge`)   |
+| Alias da network no app       | `meli_external` (`external: true`)          |
+
+### Banco e roles
+
+| Role            | Função                              | Privilégios                                         |
+|-----------------|-------------------------------------|-----------------------------------------------------|
+| `usuario_n8n`   | Superuser da instância (`POSTGRES_USER`) | Todos (criar roles, criar bancos, etc.)        |
+| `usuario_meli`  | Owner do banco `meli`               | Owner de `ads`, `auditoria`; sem `CREATEROLE`        |
+| `meli_readonly` | Conta usada pelo backend (read-only) | `CONNECT` em `meli`; `USAGE`+`SELECT` em `public`   |
+
+> **Senha de teste atual de `meli_readonly`: `123`.** Trocar antes de uso real com:
+> ```sql
+> ALTER ROLE meli_readonly WITH PASSWORD '<senha_forte>';
+> ```
+
+### Schemas e tabelas relevantes
+
+| Schema      | Owner               | Conteúdo
+|
+|-------------|---------------------|-----------------------------------------------------------------------------------|
+| `public`    | `pg_database_owner` | Tabelas do extractor: `orders`, `account`, `shipping`, `billing`; views `v_accounts_ativas`, `v_business_ativos` |
+| `ads`       | `usuario_meli`      | (não usado no Bloco 5 — provavelmente anúncios)                                                                |
+| `auditoria` | `usuario_meli`      | View `v_alteracoes_recentes`(log)                                                                              |
+
+> **Atenção:** o `DOC_TEST_IMPORT_v1.md` antigo assumia schema `meli`. Na v1 real, as tabelas estão em **`public`**. A SQL do extractor continua funcionando sem prefixo porque `public` é o schema default no `search_path`.
+
+### Comandos SQL aplicados (criação do role)
+
+Conectado como `usuario_n8n` em `meli`:
+
+```sql
+CREATE ROLE meli_readonly LOGIN PASSWORD '123';
+
+GRANT CONNECT ON DATABASE meli   TO meli_readonly;
+GRANT USAGE   ON SCHEMA   public TO meli_readonly;
+GRANT SELECT  ON ALL TABLES IN SCHEMA public TO meli_readonly;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE usuario_meli IN SCHEMA public
+  GRANT SELECT ON TABLES TO meli_readonly;
+```
+
+### Connection string
+
+```env
+EXTERNAL_DB_URL=postgresql://meli_readonly:123@postgres_db:5432/meli
+```
+
+> Host = `postgres_db` (resolvido por DNS interno do Docker dentro da network `projeto-meli_app_rede`).
+
+### Ajuste no `docker-compose.prod.yml` (financial-dashboard-dbv1)
+
+```yaml
+services:
+  backend:
+    networks:
+      - financial_network
+      - meli_external
+
+networks:
+  financial_network:
+    driver: bridge
+  meli_external:
+    external: true
+    name: projeto-meli_app_rede
+```
+
+### Validação
+
+```bash
+# DNS interno
+docker exec financial-dashboard-dbv1-backend-1 sh -c "getent hosts postgres_db"
+# 172.18.0.2  postgres_db
+
+# Conexão SQLAlchemy
+docker compose -f docker-compose.prod.yml exec backend python -c \
+  "from app.db.external_database import test_external_connection; print('OK' if test_external_connection() else 'FAIL')"
+# OK
+
+# Endpoint HTTP
+docker compose -f docker-compose.prod.yml exec backend sh -c "curl -s http://localhost:8000/health/external-db"
+# {"status":"healthy","db":"meli"}
+
+# Leitura real
+docker exec -it postgres_db psql -U meli_readonly -d meli -c "SELECT count(*) FROM public.orders;"
+# count = 14
+```
+
 ### Defaults
 - IDs usam `nextval('<tabela>_id_seq')` exceto `shipping.id`.
 - Timestamps usam `CURRENT_TIMESTAMP` ou `now()` (sem padronização única).
