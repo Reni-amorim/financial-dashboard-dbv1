@@ -62,7 +62,8 @@ def health_external_db():
         logger.error(f"External DB check falhou: {e}")
         raise HTTPException(status_code=503, detail=f"External DB indisponível: {e}")
 
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+##### Somente para commitar a alteração feita anteriormente #####
