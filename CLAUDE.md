@@ -35,7 +35,7 @@
 - **Coluna-chave anúncios:** `"Título do anúncio patrocinado"`
 - **Aba da planilha de anúncios:** `"Relatório Anúncios patrocinados"`, header linha 1 (0-indexed)
 - **Novos endpoints:** seguir padrão de `backend/app/api/dashboard.py`
-- **Hierarquia de dados:** `User → Company → Business → Account → Orders (no `meli`)`
+- **Hierarquia de dados:** `User → Company → Business → Account → Orders (no meli)`
 - **FK do admin da Company:** `Company.admin_user_id` (renomeado de `user_id` no Bloco 1)
 - **ID externo do seller:** `Account.marketplace_id` (BigInteger) — chave do JOIN em `meli.public.orders`
 - **Cache de faturamento extraído:** `data/faturamento/{user_id}/{account_id}/<uuid>.parquet`
