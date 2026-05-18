@@ -1,5 +1,5 @@
 """
-Página de Cadastro de Empresas
+Página de Cadastro de Empresas (Company)
 """
 import streamlit as st
 import requests
@@ -11,7 +11,6 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://backend:8000/api/v1")
 
 st.set_page_config(page_title="Empresas", layout="wide")
 
-# Proteção de rota
 if "token" not in st.session_state or not st.session_state["token"]:
     st.warning("Faça login primeiro.")
     st.switch_page("app.py")
@@ -27,13 +26,9 @@ ESTADOS = [
 REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real"]
 
 
-# ─────────────────────────────────────────────────────────────
-# FUNÇÕES
-# ─────────────────────────────────────────────────────────────
-
 def carregar_empresas():
     try:
-        r = requests.get(f"{API_BASE_URL}/empresa/", headers=headers, timeout=10)
+        r = requests.get(f"{API_BASE_URL}/company/", headers=headers, timeout=10)
         if r.status_code == 200:
             return r.json()
     except Exception as e:
@@ -44,8 +39,13 @@ def carregar_empresas():
 def criar_empresa(nome, cnpj, estado, regime):
     try:
         r = requests.post(
-            f"{API_BASE_URL}/empresa/",
-            json={"nome": nome, "cnpj": cnpj, "estado": estado, "regime_tributario": regime},
+            f"{API_BASE_URL}/company/",
+            json={
+                "name": nome,
+                "document": cnpj,
+                "state_origin": estado,
+                "regime_tributario": regime,
+            },
             headers=headers,
             timeout=10,
         )
@@ -55,10 +55,10 @@ def criar_empresa(nome, cnpj, estado, regime):
         return None
 
 
-def deletar_empresa(empresa_id):
+def deletar_empresa(company_id):
     try:
         r = requests.delete(
-            f"{API_BASE_URL}/empresa/{empresa_id}",
+            f"{API_BASE_URL}/company/{company_id}",
             headers=headers,
             timeout=10,
         )
@@ -67,19 +67,11 @@ def deletar_empresa(empresa_id):
         st.error(f"Erro: {e}")
         return None
 
-
-# ─────────────────────────────────────────────────────────────
-# TÍTULO
-# ─────────────────────────────────────────────────────────────
 
 st.title("🏢 Cadastro de Empresas")
 st.caption("Gerencie as empresas vinculadas à sua conta.")
 
 st.divider()
-
-# ─────────────────────────────────────────────────────────────
-# FORMULÁRIO DE CADASTRO
-# ─────────────────────────────────────────────────────────────
 
 with st.expander("➕ Adicionar nova empresa", expanded=True):
     with st.form("form_empresa"):
@@ -114,15 +106,15 @@ with st.expander("➕ Adicionar nova empresa", expanded=True):
                 st.error("Nome e CNPJ são obrigatórios.")
             else:
                 response = criar_empresa(nome, cnpj, estado, regime)
-                if response and response.status_code == 201:
+                if response and response.status_code in (200, 201):
                     st.success(f"✅ Empresa **{nome}** cadastrada com sucesso!")
                     st.rerun()
                 elif response:
-                    st.error(f"❌ Erro: {response.json().get('detail', 'Erro desconhecido')}")
-
-# ─────────────────────────────────────────────────────────────
-# LISTA DE EMPRESAS
-# ─────────────────────────────────────────────────────────────
+                    try:
+                        detail = response.json().get("detail", "Erro desconhecido")
+                    except Exception:
+                        detail = response.text
+                    st.error(f"❌ Erro {response.status_code}: {detail}")
 
 st.subheader("📋 Empresas Cadastradas")
 
@@ -136,16 +128,16 @@ else:
             col1, col2, col3 = st.columns([4, 2, 1])
 
             with col1:
-                st.markdown(f"**🏢 {empresa['nome']}**")
-                st.caption(f"CNPJ: {empresa['cnpj']}")
+                st.markdown(f"**🏢 {empresa['name']}**")
+                st.caption(f"CNPJ: {empresa.get('document', '-')}")
 
             with col2:
-                st.markdown(f"📍 **{empresa['estado']}**")
-                st.caption(empresa['regime_tributario'])
+                st.markdown(f"📍 **{empresa.get('state_origin', '-')}**")
+                st.caption(empresa.get('regime_tributario', '-'))
 
             with col3:
                 if st.button("🗑️", key=f"del_{empresa['id']}", help="Remover empresa"):
                     r = deletar_empresa(empresa['id'])
-                    if r and r.status_code == 204:
+                    if r and r.status_code in (200, 204):
                         st.success("Empresa removida!")
                         st.rerun()

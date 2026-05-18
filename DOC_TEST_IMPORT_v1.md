@@ -476,7 +476,7 @@ financial_db.users.user_id
 - [x] Bloco 2 — Schemas + API CRUD de **Business**.
 - [x] Bloco 3 — Schemas + API CRUD de **Account**.
 - [x] Bloco 4 — `.env` + `external_database.py` + endpoint `/health/external-db` + network Docker compartilhada.
-- [ ] Bloco 5 — `faturamento_extractor.py` com `extract_and_cache(...)`.
-- [ ] Bloco 6 — `POST /dashboard/atualizar`, `GET /dashboard/accounts`, `GET /dashboard/?account_id=`.
+- [x] Bloco 5 — `faturamento_extractor.py` com `extract_and_cache(...)`.
+- [x] Bloco 6 — `POST /dashboard/atualizar`, `GET /dashboard/accounts`, `GET /dashboard/?account_id=`.
 - [ ] Bloco 7 — `cadastro_company.py` (renomeado, 3 abas) + selectbox/botão no dashboard.
 - [ ] Bloco 8 — Testes manuais ponta-a-ponta com 2 accounts.

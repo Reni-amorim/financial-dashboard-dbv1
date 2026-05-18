@@ -319,7 +319,7 @@ Sessão de configuração do extractor (financial-dashboard-dbv1 ↔ banco exter
 |
 |-------------|---------------------|-----------------------------------------------------------------------------------|
 | `public`    | `pg_database_owner` | Tabelas do extractor: `orders`, `account`, `shipping`, `billing`; views `v_accounts_ativas`, `v_business_ativos` |
-| `ads`       | `usuario_meli`      | (não usado no Bloco 5 — provavelmente anúncios)                                                                |
+| `ads`       | `usuario_meli`      | (não usado no Bloco 5 — provavelmente anúncios) |
 | `auditoria` | `usuario_meli`      | View `v_alteracoes_recentes`(log)                                                                              |
 
 > **Atenção:** o `DOC_TEST_IMPORT_v1.md` antigo assumia schema `meli`. Na v1 real, as tabelas estão em **`public`**. A SQL do extractor continua funcionando sem prefixo porque `public` é o schema default no `search_path`.
